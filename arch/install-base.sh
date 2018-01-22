@@ -2,17 +2,12 @@
 
 # wpa_supplicant -B -i interface -c <(wpa_passphrase MYSSID passphrase)
 # systemctl start dhcpcd
-# curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install.sh -o ./install.sh
+# curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-base.sh -o ./install-base.sh
+# curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-x.sh -o ./install-x.sh
 # curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-vars.sh -o ./install-vars.sh
 # chmod +x install.sh
 
 source ./install-vars.sh
-
-# Get wifi password
-if [ "${WIFI_SETUP}" == "true" ]; then
-    echo "Please enter password for wireless network '${WIFI_SSID}':"
-    read -s WIFI_PASSWORD
-fi
 
 # Set keyboard layout
 loadkeys ${KEYBOARD_LAYOUT}
@@ -26,25 +21,43 @@ else
 fi
 echo "Boot Mode: '${BOOT_MODE}'"
 
-# Set up network
-#ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
-echo "ctrl_interface=/run/wpa_supplicant" > /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
-wpa_passphrase ${WIFI_SSID} ${WIFI_PASSWORD} >> /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
-echo "Created wpa_supplicant configuration at '/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf'"
-echo "noarp" > /etc/dhcpd.conf
-echo "Updated dhcpcd config"
-systemctl restart dhcpcd
-echo "Restarted dhcpcd service"
+
+if [ "${WIFI_SETUP}" == "true" ]; then
+    # Get wifi password
+    echo "Please enter password for wireless network '${WIFI_SSID}':"
+    read -s WIFI_PASSWORD
+
+    # Set up network
+    #ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
+    echo "ctrl_interface=/run/wpa_supplicant" > /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
+    wpa_passphrase ${WIFI_SSID} ${WIFI_PASSWORD} >> /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
+    echo "Created wpa_supplicant configuration at '/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf'"
+    echo "noarp" > /etc/dhcpd.conf
+    echo "Updated dhcpcd config"
+    systemctl restart dhcpcd
+    echo "Restarted dhcpcd service"
+fi
 
 # Set NTP
 timedatectl set-ntp true
 echo "NTP activated"
 
 # Partition disk
-parted -s ${DISK} mktable msdos mkpart primary ext4 1MiB 100%
-mkfs.ext4 "${DISK}1"
-mount "${DISK}1" /mnt
-echo "Partitioned '${DISK}'"
+if [ "${BOOT_MODE}" == "BIOS" ]; then    
+    parted -s ${DISK} mktable msdos mkpart primary ext4 1MiB 100%
+    parted -s ${DISK} set 1 boot on
+    mkfs.ext4 "${DISK}1"
+    mount "${DISK}1" /mnt
+    echo "Partitioned '${DISK}'"
+else
+    parted -s ${DISK} mktable gpt mkpart ESP fat32 1MiB 513MiB mkpart primary ext4 513MiB 100%
+    parted -s ${DISK} set 1 boot on
+    mkfs.fat -F32 "${DISK}1"
+    mkfs.ext4 "${DISK}2"
+    mount "${DISK}1" /mnt/boot
+    mount "${DISK}2" /mnt
+    echo "Partitioned '${DISK}'"
+fi
 
 # Install base
 pacstrap /mnt base base-devel vim
@@ -114,6 +127,12 @@ echo "Created user '${USERNAME}'"
 
 systemctl enable systemd-timesyncd
 systemctl enable dhcpcd
+
+pacman -S acpi
+
+if [ "${LAPTOP}" == "true" ]; then
+    pacman -S xf86-input-libinput
+fi
 
 exit
 umount -R /mnt
