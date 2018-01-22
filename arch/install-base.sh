@@ -27,16 +27,6 @@ if [ "${WIFI_SETUP}" == "true" ]; then
     # Get wifi password
     echo "Please enter password for wireless network '${WIFI_SSID}':"
     read -s WIFI_PASSWORD
-
-    # Set up network
-    #ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
-    echo "ctrl_interface=/run/wpa_supplicant" > /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
-    wpa_passphrase ${WIFI_SSID} ${WIFI_PASSWORD} >> /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
-    echo "Created wpa_supplicant configuration at '/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf'"
-    echo "noarp" > /etc/dhcpd.conf
-    echo "Updated dhcpcd config"
-    systemctl restart dhcpcd
-    echo "Restarted dhcpcd service"
 fi
 
 # Set NTP
@@ -93,7 +83,25 @@ cat <<EOT >> /mnt/etc/hosts
 EOT
 echo "Updated /etc/hosts"
 
+# Set up network
+if [ "${WIFI_SETUP}" == "true" ]; then
+    ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /mnt/usr/lib/dhcpcd/dhcpcd-hooks/
+    echo "ctrl_interface=/run/wpa_supplicant" > /mnt/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
+    wpa_passphrase ${WIFI_SSID} ${WIFI_PASSWORD} >> /mnt/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
+    echo "Created wpa_supplicant configuration at '/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf'"
+    echo "noarp" > /mnt/etc/dhcpd.conf
+    echo "Updated dhcpcd config"
+fi
+
 cat <<EOT >> /mnt/root/install-base-p2.sh
+#!/bin/bash
+
+ln -s /usr/share/dhcpcd/hooks/10-wpa_supplicant /usr/lib/dhcpcd/dhcpcd-hooks/
+
+#cp /etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf /mnt/etc/wpa_supplicant/wpa_supplicant-${WIFI_INTERFACE}.conf
+#cp /etc/dhcpd.conf /mnt/etc/dhcpd.conf
+#echo "Copied network setup to new filesystem"
+
 ln -sf /usr/share/zoneinfo/Europe/Oslo /etc/localtime
 echo "Localetime set"
 
@@ -108,6 +116,7 @@ locale-gen
 echo "${HOSTNAME}" > /etc/hostname
 echo "Hostname set"
 
+echo "Please set a password for 'root' user:"
 passwd
 
 pacman -S grub
@@ -121,6 +130,7 @@ grub-mkconfig -o /boot/grub/grub.cfg
 echo "Installed GRUB"
 
 useradd -m -G wheel -s /bin/bash ${USERNAME}
+echo "Please set a password for '${USERNAME}' user:"
 passwd ${USERNAME}
 echo '%wheel ALL=(ALL) ALL' | sudo EDITOR='tee -a' visudo
 echo "Created user '${USERNAME}'"
@@ -134,12 +144,12 @@ if [ "${LAPTOP}" == "true" ]; then
     pacman -S xf86-input-libinput
 fi
 
-exit
+echo "Finished chroot install - please continue by entering 'exit'"
 EOT
 
 chmod +x /mnt/root/install-base-p2.sh
 
-echo "Entering chroot - please continue the install by running 'install-base-p2.sh'"
+echo "Entering chroot - please continue the install by running '/root/install-base-p2.sh'"
 
 arch-chroot /mnt
 
