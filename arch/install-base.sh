@@ -66,20 +66,7 @@ pacstrap /mnt base base-devel vim
 genfstab -U /mnt >> /mnt/etc/fstab
 echo "Generated fstab"
 
-arch-chroot /mnt
-
-ln -sf /usr/share/zoneinfo/Europe/Oslo /etc/localtime
-echo "Localetime set"
-
-hwclock --systohc
-echo "Hardware clock set"
-
-cp /etc/locale.gen /etc/locale.gen.bak
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-echo "nb_NO.UTF-8 UTF-8" >>/etc/locale.gen
-locale-gen
-
-cat <<EOT >> /etc/locale.conf
+cat <<EOT >> /mnt/etc/locale.conf
 LANG=en_US.UTF-8
 LC_ADDRESS=nb_NO.UTF-8
 LC_IDENTIFICATION=nb_NO.UTF-8
@@ -93,21 +80,33 @@ LC_TIME=nb_NO.UTF-8
 EOT
 echo "Updated /etc/locale.conf"
 
-cat <<EOT >> /etc/vconsole.conf
+cat <<EOT >> /mnt/etc/vconsole.conf
 KEYMAP=no-latin1
 FONT=lat0-16
 EOT
 echo "Updated /etc/vconsole.conf"
 
-echo "${HOSTNAME}" > /etc/hostname
-echo "Hostname set"
-
-cat <<EOT >> /etc/hosts
+cat <<EOT >> /mnt/etc/hosts
 127.0.0.1   localhost.localdomain   localhost
 ::1         localhost.localdomain   localhost
 127.0.0.1   ${HOSTNAME}.localdomain ${HOSTNAME}
 EOT
 echo "Updated /etc/hosts"
+
+cat <<EOT >> /mnt/root/install-base-p2.sh
+ln -sf /usr/share/zoneinfo/Europe/Oslo /etc/localtime
+echo "Localetime set"
+
+hwclock --systohc
+echo "Hardware clock set"
+
+cp /etc/locale.gen /etc/locale.gen.bak
+echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
+echo "nb_NO.UTF-8 UTF-8" >>/etc/locale.gen
+locale-gen
+
+echo "${HOSTNAME}" > /etc/hostname
+echo "Hostname set"
 
 passwd
 
@@ -136,6 +135,14 @@ if [ "${LAPTOP}" == "true" ]; then
 fi
 
 exit
+EOT
+
+chmod +x /mnt/root/install-base-p2.sh
+
+echo "Entering chroot - please continue the install by running 'install-base-p2.sh'"
+
+arch-chroot /mnt
+
 umount -R /mnt
 
 echo "Finished initial installation of Arch Linux. Please reboot and log in as ${USERNAME}"
