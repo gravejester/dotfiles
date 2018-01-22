@@ -5,7 +5,8 @@
 # curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-base.sh -o ./install-base.sh
 # curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-x.sh -o ./install-x.sh
 # curl https://raw.githubusercontent.com/gravejester/dotfiles/master/arch/install-vars.sh -o ./install-vars.sh
-# chmod +x install.sh
+# chmod +x install-base.sh
+# chmod +x install-x.sh
 
 source ./install-vars.sh
 
